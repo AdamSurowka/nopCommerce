@@ -13,38 +13,40 @@ variables:
   solution: '**/NopCommerce.sln'
   buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
+jobs:
+  - job: build
+    timeoutInMinutes: 360
+    steps:
 
-steps:
+    - task: SonarQubePrepare@5
+      inputs:
+        SonarQube: 'sq'
+        scannerMode: 'MSBuild'
+        projectKey: 'AIDA2022_CS_2_AIDA2022_CS_2'
 
-- task: SonarQubePrepare@5
-  inputs:
-    SonarQube: 'sq'
-    scannerMode: 'MSBuild'
-    projectKey: 'AIDA2022_CS_2_AIDA2022_CS_2'
+    - powershell: |
+        $params = "$env:SONARQUBE_SCANNER_PARAMS" -replace '"sonar.branch.name":"[\w,/,-]*"\,?'
+        Write-Host "##vso[task.setvariable variable=SONARQUBE_SCANNER_PARAMS]$params"
+    - task: NuGetToolInstaller@1
 
-- powershell: |
-    $params = "$env:SONARQUBE_SCANNER_PARAMS" -replace '"sonar.branch.name":"[\w,/,-]*"\,?'
-    Write-Host "##vso[task.setvariable variable=SONARQUBE_SCANNER_PARAMS]$params"
-- task: NuGetToolInstaller@1
+    - task: NuGetCommand@2
+      inputs:
+        restoreSolution: '$(solution)'
 
-- task: NuGetCommand@2
-  inputs:
-    restoreSolution: '$(solution)'
+    - task: VSBuild@1
+      inputs:
+        solution: '$(solution)'
+        msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactStagingDirectory)"'
+        platform: '$(buildPlatform)'
+        configuration: '$(buildConfiguration)'
 
-- task: VSBuild@1
-  inputs:
-    solution: '$(solution)'
-    msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactStagingDirectory)"'
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
+    - task: VSTest@2
+      inputs:
+        platform: '$(buildPlatform)'
+        configuration: '$(buildConfiguration)'
 
-- task: VSTest@2
-  inputs:
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
+    - task: SonarQubeAnalyze@5
 
-- task: SonarQubeAnalyze@5
-
-- task: SonarQubePublish@5
-  inputs:
-    pollingTimeoutSec: '300'
+    - task: SonarQubePublish@5
+      inputs:
+        pollingTimeoutSec: '300'
